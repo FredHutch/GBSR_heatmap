@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.11.0"
+__generated_with = "0.11.17"
 app = marimo.App(width="medium", app_title="Marimo Viewer: Cirro")
 
 
@@ -125,12 +125,7 @@ def _(list_tenants):
 
     def name_to_domain(name):
         return tenants_by_name.get(name, {}).get("domain")
-    return (
-        domain_to_name,
-        name_to_domain,
-        tenants_by_domain,
-        tenants_by_name,
-    )
+    return domain_to_name, name_to_domain, tenants_by_domain, tenants_by_name
 
 
 @app.cell
@@ -149,26 +144,29 @@ def _(mo):
 @app.cell
 def _(domain_to_name, mo, query_params, tenants_by_name):
     # Let the user select which tenant to log in to (using displayName)
-    domain_ui = mo.ui.dropdown(
-        options=tenants_by_name,
-        value=domain_to_name(query_params.get("domain")),
-        on_change=lambda i: query_params.set("domain", i["domain"]),
-        label="Load Data from Cirro",
-    )
+    if query_params.get("domain") is None:
+        domain_ui = mo.ui.dropdown(
+            options=tenants_by_name,
+            value=domain_to_name(query_params.get("domain")),
+            on_change=lambda i: query_params.set("domain", i["domain"]),
+            label="Load Data from Cirro",
+        )
+    else:
+        domain_ui = None
     domain_ui
     return (domain_ui,)
 
 
 @app.cell
-def _(DataPortalLogin, domain_ui, get_client, mo):
+def _(DataPortalLogin, get_client, mo, query_params):
     # If the user is not yet logged in, and a domain is selected, then give the user instructions for logging in
     # The configuration of this cell and the two below it serve the function of:
     #   1. Showing the user the login instructions if they have selected a Cirro domain
     #   2. Removing the login instructions as soon as they have completed the login flow
-    if get_client() is None and domain_ui.value is not None:
+    if get_client() is None and query_params.get("domain") is not None:
         with mo.status.spinner("Authenticating"):
             # Use device code authorization to log in to Cirro
-            cirro_login = DataPortalLogin(base_url=domain_ui.value["domain"])
+            cirro_login = DataPortalLogin(base_url=query_params.get("domain"))
             cirro_login_ui = mo.md(cirro_login.auth_message_markdown)
     else:
         cirro_login = None
@@ -222,6 +220,7 @@ def _(client):
 def _(id_to_name, mo, name_to_id, projects, query_params):
     # Let the user select which project to get data from
     project_ui = mo.ui.dropdown(
+        label="Select Project:",
         value=id_to_name(projects, query_params.get("project")),
         options=name_to_id(projects),
         on_change=lambda i: query_params.set("project", i)
@@ -231,7 +230,7 @@ def _(id_to_name, mo, name_to_id, projects, query_params):
 
 
 @app.cell
-def _(cirro_dataset_type_filter, client, mo, project_ui):
+def _(client, mo, project_ui):
     # Stop if the user has not selected a project
     mo.stop(project_ui.value is None)
 
@@ -240,7 +239,7 @@ def _(cirro_dataset_type_filter, client, mo, project_ui):
     datasets = [
         dataset
         for dataset in client.get_project_by_id(project_ui.value).list_datasets()
-        if dataset.process_id in cirro_dataset_type_filter
+        #if dataset.process_id in cirro_dataset_type_filter
     ]
     return (datasets,)
 
