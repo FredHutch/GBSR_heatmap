@@ -1,12 +1,12 @@
 import marimo
 
-__generated_with = "0.11.17"
+__generated_with = "0.12.6"
 app = marimo.App(width="medium", app_title="Marimo Viewer: Cirro")
 
 
 @app.cell
 def _(mo):
-    mo.md(r"""# Marimo Viewer: Cirro""")
+    mo.md(r"""# Marimo Viewer: Custom Plots via Cirro""")
     return
 
 
@@ -15,10 +15,7 @@ def _():
     # Define the types of datasets which can be read in
     # This is used to filter the dataset selector, below
     cirro_dataset_type_filter = [
-        "process-hutch-differential-expression-1_0",
-        "process-hutch-differential-expression-custom-1_0",
-        "differential-expression-table",
-        "process-nf-core-differentialabundance-1_5"
+        "custom_files"
     ]
     return (cirro_dataset_type_filter,)
 
@@ -62,7 +59,7 @@ async def _(micropip, mo, running_in_wasm):
             await micropip.install("s3transfer==0.11.3")
             await micropip.install("boto3==1.36.23")
             await micropip.install("aiobotocore==2.20.0")
-            await micropip.install("cirro[pyodide]>=1.2.16")
+            await micropip.install("cirro[pyodide]==1.2.16")
 
         from io import StringIO, BytesIO
         from queue import Queue
@@ -144,15 +141,15 @@ def _(mo):
 @app.cell
 def _(domain_to_name, mo, query_params, tenants_by_name):
     # Let the user select which tenant to log in to (using displayName)
-    if query_params.get("domain") is None:
-        domain_ui = mo.ui.dropdown(
-            options=tenants_by_name,
-            value=domain_to_name(query_params.get("domain")),
-            on_change=lambda i: query_params.set("domain", i["domain"]),
-            label="Load Data from Cirro",
-        )
-    else:
-        domain_ui = None
+    #if query_params.get("domain") is None:
+    domain_ui = mo.ui.dropdown(
+        options=tenants_by_name,
+        value=domain_to_name(query_params.get("domain")),
+        on_change=lambda i: query_params.set("domain", i["domain"]),
+        label="Load Data from Cirro",
+    )
+    #else:
+    #    domain_ui = None
     domain_ui
     return (domain_ui,)
 
@@ -163,10 +160,12 @@ def _(DataPortalLogin, get_client, mo, query_params):
     # The configuration of this cell and the two below it serve the function of:
     #   1. Showing the user the login instructions if they have selected a Cirro domain
     #   2. Removing the login instructions as soon as they have completed the login flow
+    #if get_client() is None and domain_ui.value is not None:
     if get_client() is None and query_params.get("domain") is not None:
         with mo.status.spinner("Authenticating"):
             # Use device code authorization to log in to Cirro
             cirro_login = DataPortalLogin(base_url=query_params.get("domain"))
+            #cirro_login = DataPortalLogin(base_url=domain_ui.value["domain"])
             cirro_login_ui = mo.md(cirro_login.auth_message_markdown)
     else:
         cirro_login = None
